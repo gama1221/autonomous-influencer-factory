@@ -1,0 +1,755 @@
+# API Server Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chimera-api
+  namespace: chimera
+  labels:
+    app: chimera-api
+    version: v1.0.0
+    component: api
+    managed-by: helm
+spec:
+  replicas: 3
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: chimera-api
+  template:
+    metadata:
+      labels:
+        app: chimera-api
+        version: v1.0.0
+        component: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+        sidecar.istio.io/inject: "true"
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "chimera-api"
+        vault.hashicorp.com/agent-inject-secret-config: "secret/data/chimera/api"
+        vault.hashicorp.com/agent-inject-template-config: |
+          {{- with secret "secret/data/chimera/api" -}}
+          export SECRET_KEY="{{ .Data.data.SECRET_KEY }}"
+          export OPENAI_API_KEY="{{ .Data.data.OPENAI_API_KEY }}"
+          export YOUTUBE_API_KEY="{{ .Data.data.YOUTUBE_API_KEY }}"
+          export TWITTER_BEARER_TOKEN="{{ .Data.data.TWITTER_BEARER_TOKEN }}"
+          {{- end }}
+    spec:
+      serviceAccountName: chimera-api-sa
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: api
+        image: registry.chimera.example.com/chimera-api:v1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: chimera-db-secret
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: chimera-redis-secret
+              key: redis-url
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector.observability:4317"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        envFrom:
+        - configMapRef:
+            name: chimera-api-config
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 30
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: logs-volume
+          mountPath: /app/logs
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+      volumes:
+      - name: config-volume
+        configMap:
+          name: chimera-api-config
+          optional: false
+      - name: tmp-volume
+        emptyDir: {}
+      - name: logs-volume
+        emptyDir: {}
+      nodeSelector:
+        node-type: compute-optimized
+      tolerations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "chimera"
+        effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - chimera-api
+              topologyKey: kubernetes.io/hostname
+---
+# Research Agent Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chimera-research-agent
+  namespace: chimera
+  labels:
+    app: chimera-research-agent
+    version: v1.0.0
+    component: agent
+    agent-type: research
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: chimera-research-agent
+  template:
+    metadata:
+      labels:
+        app: chimera-research-agent
+        version: v1.0.0
+        component: agent
+        agent-type: research
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: chimera-agent-sa
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      containers:
+      - name: research-agent
+        image: registry.chimera.example.com/chimera-agent:v1.0.0
+        imagePullPolicy: IfNotPresent
+        command: ["python", "agent_runner.py", "--agent-type", "research", "--interval", "3600"]
+        env:
+        - name: AGENT_TYPE
+          value: "research"
+        - name: AGENT_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: chimera-db-secret
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: chimera-redis-secret
+              key: redis-url
+        - name: API_BASE_URL
+          value: "http://chimera-api.chimera.svc.cluster.local:8000/api/v1"
+        envFrom:
+        - configMapRef:
+            name: chimera-agent-config
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - |
+              from agents.base_agent import AgentHealth
+              import sys
+              sys.exit(0 if AgentHealth().check() else 1)
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        volumeMounts:
+        - name: agent-memory
+          mountPath: /app/agent_memory
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: agent-memory
+        persistentVolumeClaim:
+          claimName: chimera-agent-memory-pvc
+      - name: config-volume
+        configMap:
+          name: chimera-agent-config
+      nodeSelector:
+        node-type: memory-optimized
+      tolerations:
+      - key: "agent"
+        operator: "Equal"
+        value: "research"
+        effect: "NoSchedule"
+---
+# Content Agent Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chimera-content-agent
+  namespace: chimera
+  labels:
+    app: chimera-content-agent
+    version: v1.0.0
+    component: agent
+    agent-type: content
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chimera-content-agent
+  template:
+    metadata:
+      labels:
+        app: chimera-content-agent
+        version: v1.0.0
+        component: agent
+        agent-type: content
+    spec:
+      serviceAccountName: chimera-agent-sa
+      containers:
+      - name: content-agent
+        image: registry.chimera.example.com/chimera-agent:v1.0.0
+        command: ["python", "agent_runner.py", "--agent-type", "content", "--batch-size", "10"]
+        env:
+        - name: AGENT_TYPE
+          value: "content"
+        - name: AGENT_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: chimera-db-secret
+              key: database-url
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: chimera-external-apis
+              key: openai-api-key
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+            nvidia.com/gpu: 1
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+            nvidia.com/gpu: 1
+        volumeMounts:
+        - name: generated-content
+          mountPath: /app/generated_content
+        - name: gpu-drivers
+          mountPath: /usr/local/nvidia
+          readOnly: true
+      volumes:
+      - name: generated-content
+        persistentVolumeClaim:
+          claimName: chimera-content-pvc
+      - name: gpu-drivers
+        hostPath:
+          path: /usr/local/nvidia
+      nodeSelector:
+        accelerator: nvidia-tesla-t4
+      tolerations:
+      - key: "nvidia.com/gpu"
+        operator: "Exists"
+        effect: "NoSchedule"
+---
+# PostgreSQL StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: chimera-postgres
+  namespace: chimera
+  labels:
+    app: chimera-postgres
+    component: database
+spec:
+  serviceName: chimera-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chimera-postgres
+  template:
+    metadata:
+      labels:
+        app: chimera-postgres
+        component: database
+    spec:
+      serviceAccountName: chimera-db-sa
+      securityContext:
+        fsGroup: 999
+        runAsUser: 999
+        runAsGroup: 999
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: chimera-db-secret
+              key: database-name
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: chimera-db-secret
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: chimera-db-secret
+              key: password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        ports:
+        - containerPort: 5432
+          name: postgres
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "1"
+          limits:
+            memory: "8Gi"
+            cpu: "2"
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: postgres-config
+          mountPath: /docker-entrypoint-initdb.d
+          readOnly: true
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - "$(POSTGRES_USER)"
+            - -d
+            - "$(POSTGRES_DB)"
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - "$(POSTGRES_USER)"
+            - -d
+            - "$(POSTGRES_DB)"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+      volumes:
+      - name: postgres-config
+        configMap:
+          name: chimera-postgres-config
+          optional: false
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: gp3-encrypted
+      resources:
+        requests:
+          storage: 100Gi
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chimera-redis
+  namespace: chimera
+  labels:
+    app: chimera-redis
+    component: cache
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: chimera-redis
+  template:
+    metadata:
+      labels:
+        app: chimera-redis
+        component: cache
+        role: master
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - chimera-redis
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        command: ["redis-server"]
+        args: ["--appendonly", "yes", "--requirepass", "$(REDIS_PASSWORD)"]
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: chimera-redis-secret
+              key: password
+        ports:
+        - containerPort: 6379
+          name: redis
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - -a
+            - "$(REDIS_PASSWORD)"
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - -a
+            - "$(REDIS_PASSWORD)"
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: chimera-redis-pvc
+---
+# OpenTelemetry Collector
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: chimera-monitoring
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      serviceAccountName: otel-collector-sa
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.85.0
+        args: ["--config=/etc/otel-collector-config.yaml"]
+        ports:
+        - containerPort: 4317
+          name: otlp-grpc
+        - containerPort: 4318
+          name: otlp-http
+        - containerPort: 8888
+          name: metrics
+        - containerPort: 8889
+          name: metrics-prom
+        - containerPort: 13133
+          name: healthcheck
+        - containerPort: 55679
+          name: zpages
+        volumeMounts:
+        - name: otel-collector-config
+          mountPath: /etc/otel-collector-config.yaml
+          subPath: otel-collector-config.yaml
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: otel-collector-config
+        configMap:
+          name: otel-collector-config
+---
+# Prometheus
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: chimera-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus-sa
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.47.0
+        args:
+        - "--config.file=/etc/prometheus/prometheus.yml"
+        - "--storage.tsdb.path=/prometheus"
+        - "--web.console.libraries=/etc/prometheus/console_libraries"
+        - "--web.console.templates=/etc/prometheus/consoles"
+        - "--storage.tsdb.retention.time=30d"
+        - "--web.enable-lifecycle"
+        ports:
+        - containerPort: 9090
+          name: http
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus
+        - name: prometheus-data
+          mountPath: /prometheus
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "1"
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: prometheus-config
+      - name: prometheus-data
+        persistentVolumeClaim:
+          claimName: prometheus-data-pvc
+---
+# Grafana
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: chimera-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        fsGroup: 472
+        runAsUser: 472
+        runAsGroup: 472
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.1.0
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: grafana-secret
+              key: admin-password
+        - name: GF_INSTALL_PLUGINS
+          value: "grafana-piechart-panel,grafana-worldmap-panel,grafana-clock-panel"
+        volumeMounts:
+        - name: grafana-data
+          mountPath: /var/lib/grafana
+        - name: grafana-config
+          mountPath: /etc/grafana/provisioning/datasources
+        - name: grafana-dashboards
+          mountPath: /etc/grafana/provisioning/dashboards
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: grafana-data
+        persistentVolumeClaim:
+          claimName: grafana-data-pvc
+      - name: grafana-config
+        configMap:
+          name: grafana-datasources
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards
+---
+# MinIO for Object Storage
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: chimera
+spec:
+  serviceName: minio
+  replicas: 4
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      serviceAccountName: minio-sa
+      containers:
+      - name: minio
+        image: minio/minio:RELEASE.2023-10-25T06-33-25Z
+        command: ["minio"]
+        args:
+        - "server"
+        - "--console-address"
+        - ":9001"
+        - "http://minio-{0...3}.minio.chimera.svc.cluster.local/data"
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: root-user
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-secret
+              key: root-password
+        ports:
+        - containerPort: 9000
+          name: minio
+        - containerPort: 9001
+          name: console
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: minio-data-pvc

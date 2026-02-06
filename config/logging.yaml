@@ -1,0 +1,117 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  json:
+    class: pythonjsonlogger.jsonlogger.JsonFormatter
+    format: "%(asctime)s %(name)s %(levelname)s %(message)s %(filename)s %(funcName)s %(lineno)d"
+    datefmt: "%Y-%m-%dT%H:%M:%SZ"
+  
+  text:
+    format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S"
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: json
+    stream: ext://sys.stdout
+  
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: json
+    filename: logs/chimera.log
+    maxBytes: 104857600  # 100MB
+    backupCount: 10
+    encoding: utf8
+  
+  error_file:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: json
+    filename: logs/error.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf8
+  
+  metrics:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json
+    filename: logs/metrics.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf8
+
+loggers:
+  chimera:
+    level: INFO
+    handlers: [console, file, error_file]
+    propagate: false
+  
+  chimera.api:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+  
+  chimera.agents:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+  
+  chimera.skills:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+  
+  chimera.data:
+    level: WARNING
+    handlers: [console, file]
+    propagate: false
+  
+  chimera.security:
+    level: INFO
+    handlers: [console, file, error_file]
+    propagate: false
+  
+  chimera.monitoring:
+    level: INFO
+    handlers: [console, metrics]
+    propagate: false
+  
+  uvicorn:
+    level: WARNING
+    handlers: [console, file]
+    propagate: false
+  
+  sqlalchemy.engine:
+    level: WARNING
+    handlers: [console, file]
+    propagate: false
+  
+  alembic:
+    level: WARNING
+    handlers: [console, file]
+    propagate: false
+  
+  # External libraries
+  httpx:
+    level: WARNING
+    handlers: [console, file]
+    propagate: false
+  
+  redis:
+    level: WARNING
+    handlers: [console, file]
+    propagate: false
+  
+  openai:
+    level: WARNING
+    handlers: [console, file]
+    propagate: false
+
+root:
+  level: WARNING
+  handlers: [console]

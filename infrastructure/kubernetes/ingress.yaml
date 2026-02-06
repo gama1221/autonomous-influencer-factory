@@ -1,0 +1,320 @@
+# Main API Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: chimera-api-ingress
+  namespace: chimera
+  labels:
+    app: chimera-api
+    component: ingress
+  annotations:
+    # NGINX Ingress Controller
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    
+    # Security
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-max-age: "1728000"
+    nginx.ingress.kubernetes.io/enable-modsecurity: "true"
+    nginx.ingress.kubernetes.io/modsecurity-snippet: |
+      SecRuleEngine On
+      SecRequestBodyAccess On
+      SecRule REQUEST_HEADERS:Content-Type "text/xml" \
+        "id:'200000',phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=XML"
+      SecRule REQUEST_HEADERS:Content-Type "application/json" \
+        "id:'200001',phase:1,t:none,t:lowercase,pass,nolog,ctl:requestBodyProcessor=JSON"
+    
+    # Rate Limiting
+    nginx.ingress.kubernetes.io/limit-connections: "100"
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    nginx.ingress.kubernetes.io/limit-rpm: "600"
+    nginx.ingress.kubernetes.io/limit-burst: "50"
+    
+    # AWS Specific
+    alb.ingress.kubernetes.io/scheme: "internet-facing"
+    alb.ingress.kubernetes.io/target-type: "ip"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:123456789012:certificate/abc123"
+    alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS13-1-2-2021-06"
+    alb.ingress.kubernetes.io/healthcheck-path: "/health"
+    alb.ingress.kubernetes.io/healthcheck-port: "8000"
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/success-codes: "200,302"
+    alb.ingress.kubernetes.io/load-balancer-attributes: "idle_timeout.timeout_seconds=60"
+    
+    # WAF
+    alb.ingress.kubernetes.io/wafv2-acl-arn: "arn:aws:wafv2:us-east-1:123456789012:global/webacl/chimera-waf/abc123"
+    
+    # Authentication
+    nginx.ingress.kubernetes.io/auth-url: "https://auth.chimera.example.com/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://auth.chimera.example.com/oauth2/start?rd=$scheme://$host$request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User, X-Auth-Request-Email"
+    
+    # Monitoring
+    nginx.ingress.kubernetes.io/enable-opentelemetry: "true"
+    nginx.ingress.kubernetes.io/opentelemetry-config: "/etc/nginx/opentelemetry.json"
+    
+    # Load Balancing
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$request_uri"
+    nginx.ingress.kubernetes.io/load-balance: "ewma"
+    nginx.ingress.kubernetes.io/upstream-keepalive-connections: "100"
+    nginx.ingress.kubernetes.io/upstream-keepalive-timeout: "60"
+    nginx.ingress.kubernetes.io/upstream-keepalive-requests: "1000"
+    
+    # Custom Configuration
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://*.chimera.example.com;";
+      more_set_headers "Permissions-Policy: geolocation=(), microphone=(), camera=()";
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload";
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.chimera.example.com
+    - app.chimera.example.com
+    - docs.chimera.example.com
+    secretName: chimera-tls-secret
+  rules:
+  - host: api.chimera.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: chimera-api
+            port:
+              number: 80
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: chimera-api
+            port:
+              number: 80
+      - path: /docs
+        pathType: Exact
+        backend:
+          service:
+            name: chimera-api
+            port:
+              number: 80
+      - path: /redoc
+        pathType: Exact
+        backend:
+          service:
+            name: chimera-api
+            port:
+              number: 80
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: chimera-api
+            port:
+              number: 80
+      - path: /metrics
+        pathType: Exact
+        backend:
+          service:
+            name: chimera-api
+            port:
+              number: 80
+  - host: app.chimera.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: chimera-api
+            port:
+              number: 80
+  - host: docs.chimera.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: chimera-api
+            port:
+              number: 80
+---
+# Monitoring Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-ingress
+  namespace: chimera-monitoring
+  labels:
+    app: monitoring
+    component: ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: monitoring-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required - Monitoring"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - grafana.chimera.example.com
+    - prometheus.chimera.example.com
+    - alertmanager.chimera.example.com
+    secretName: monitoring-tls-secret
+  rules:
+  - host: grafana.chimera.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000
+  - host: prometheus.chimera.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: prometheus
+            port:
+              number: 9090
+---
+# MinIO Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minio-ingress
+  namespace: chimera
+  labels:
+    app: minio
+    component: ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1000m"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-NginX-Proxy true;
+      real_ip_header X-Real-IP;
+      proxy_connect_timeout 300;
+      proxy_send_timeout 300;
+      proxy_read_timeout 300;
+      send_timeout 300;
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - minio.chimera.example.com
+    secretName: minio-tls-secret
+  rules:
+  - host: minio.chimera.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: minio
+            port:
+              number: 9000
+---
+# Internal API Ingress (for service-to-service communication)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: internal-api-ingress
+  namespace: chimera
+  labels:
+    app: chimera-api
+    component: ingress
+    visibility: internal
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/internal-routing: "true"
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+spec:
+  ingressClassName: nginx-internal
+  rules:
+  - host: chimera-api.internal.chimera.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: chimera-api-internal
+            port:
+              number: 8000
+---
+# Webhook Ingress (for external services to call our webhooks)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: webhook-ingress
+  namespace: chimera
+  labels:
+    app: chimera-api
+    component: ingress
+    purpose: webhook
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      # Only allow from known webhook IPs
+      allow 52.31.139.75;  # GitHub
+      allow 140.82.112.0/20;  # GitHub
+      allow 143.55.64.0/20;  # GitHub
+      allow 2a0a:a440::/29;  # GitHub
+      deny all;
+      more_set_headers "X-Webhook-Verified: true";
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - webhooks.chimera.example.com
+    secretName: chimera-tls-secret
+  rules:
+  - host: webhooks.chimera.example.com
+    http:
+      paths:
+      - path: /webhooks/github
+        pathType: Prefix
+        backend:
+          service:
+            name: chimera-api
+            port:
+              number: 80
+      - path: /webhooks/stripe
+        pathType: Prefix
+        backend:
+          service:
+            name: chimera-api
+            port:
+              number: 80

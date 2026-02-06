@@ -1,0 +1,89 @@
+environment: testing
+debug: false
+
+database:
+  url: postgresql://test:test@localhost:5432/chimera_test
+  pool_size: 5
+  max_overflow: 10
+  echo: false
+
+redis:
+  url: redis://localhost:6379/15  # Use high DB number for testing
+  max_connections: 10
+
+api:
+  host: 0.0.0.0
+  port: 8001
+  workers: 1
+  reload: false
+  cors_origins: []
+  docs_url: null
+  redoc_url: null
+
+security:
+  secret_key: test-secret-key-for-testing-only
+  algorithm: HS256
+  access_token_expire_minutes: 5
+  rate_limit_requests: 10000  # High limit for testing
+  rate_limit_window: 60
+
+external_apis:
+  # Use mock APIs for testing
+  youtube_api_key: mock_youtube_key
+  tiktok_access_token: mock_tiktok_token
+  twitter_bearer_token: mock_twitter_token
+  openai_api_key: mock_openai_key
+
+agent:
+  research_agent_interval: 5m  # Short interval for testing
+  content_agent_batch_size: 2
+  engagement_agent_polling_interval: 10
+  max_concurrent_agents: 1
+  agent_timeout: 300
+
+skill:
+  skill_timeout: 10
+  max_retries: 1
+  retry_delay: 0
+  circuit_breaker_threshold: 3
+  circuit_breaker_timeout: 10
+
+logging:
+  level: warning
+  format: text
+  file_path: logs/test.log
+  max_file_size: 1048576  # 1MB
+  backup_count: 1
+
+monitoring:
+  enabled: false
+  sample_rate: 0.0
+
+storage:
+  media_bucket: chimera-test-media
+  archive_bucket: chimera-test-archive
+  max_file_size: 10485760  # 10MB for testing
+  allowed_mime_types:
+    - video/mp4
+    - image/jpeg
+    - image/png
+
+features:
+  ai_content_generation: false  # Use mocks for testing
+  auto_scheduling: false
+  multi_platform_publishing: false
+  audience_analytics: true
+  trend_prediction: false
+  content_safety: true
+  openclaw_integration: false
+  mcp_enabled: false
+
+# Test-specific settings
+testing:
+  use_mocks: true
+  mock_responses: true
+  test_timeout: 30
+  cleanup_database: true
+  cleanup_redis: true
+  parallel_tests: false
+  coverage_threshold: 85

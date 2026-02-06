@@ -1,0 +1,53 @@
+# skills/skill_fetch_trends/skill.yaml
+name: skill_fetch_trends
+version: 1.0.0
+description: "Fetch trending topics from multiple social platforms"
+category: research
+
+specifications:
+  input_schema: "./schemas/request.json"
+  output_schema: "./schemas/response.json"
+  
+implementation:
+  language: python
+  entrypoint: "src/implementations/youtube_trends.py"
+  dependencies:
+    - requests>=2.31.0
+    - beautifulsoup4>=4.12.0
+    - pandas>=2.0.0
+    
+interfaces:
+  - name: "fetch_youtube_trends"
+    description: "Fetch trending videos from YouTube"
+    parameters:
+      region: string
+      category: string
+      max_results: integer
+      
+  - name: "fetch_tiktok_trends"
+    description: "Fetch trending hashtags from TikTok"
+    parameters:
+      region: string
+      limit: integer
+      
+  - name: "fetch_twitter_trends"
+    description: "Fetch trending topics from Twitter"
+    parameters:
+      woeid: integer
+      exclude_hashtags: boolean
+
+telemetry:
+  enabled: true
+  metrics:
+    - execution_time
+    - success_rate
+    - data_volume
+    
+rate_limiting:
+  requests_per_minute: 30
+  burst_limit: 5
+  
+error_handling:
+  retry_attempts: 3
+  backoff_factor: 2
+  timeout_seconds: 30

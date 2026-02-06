@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chimera
+  labels:
+    name: chimera
+    environment: production
+    managed-by: terraform
+    project: chimera-factory
+  annotations:
+    description: "Namespace for Chimera Factory Autonomous Influencer Platform"
+    owner: "ai-platform-team"
+    cost-center: "ai-research-001"
+    compliance: "hipaa-ready, gdpr-ready"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chimera-monitoring
+  labels:
+    name: chimera-monitoring
+    environment: production
+    component: monitoring
+    managed-by: terraform
+  annotations:
+    description: "Monitoring stack for Chimera Factory"
+    grafana/dashboard-folder: "Chimera Factory"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chimera-staging
+  labels:
+    name: chimera-staging
+    environment: staging
+    managed-by: terraform
+  annotations:
+    description: "Staging environment for Chimera Factory"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chimera-ci
+  labels:
+    name: chimera-ci
+    environment: ci
+    managed-by: terraform
+  annotations:
+    description: "CI/CD pipeline namespace for Chimera Factory"

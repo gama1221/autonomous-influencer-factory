@@ -1,0 +1,126 @@
+environment: production
+debug: false
+
+database:
+  url: ${DATABASE_URL}
+  pool_size: 20
+  max_overflow: 40
+  echo: false
+  pool_recycle: 3600
+
+redis:
+  url: ${REDIS_URL}
+  max_connections: 50
+  socket_timeout: 5
+  socket_connect_timeout: 5
+
+api:
+  host: 0.0.0.0
+  port: ${PORT:-8000}
+  workers: ${WEB_CONCURRENCY:-4}
+  reload: false
+  cors_origins: ${CORS_ORIGINS}
+  docs_url: null
+  redoc_url: null
+
+security:
+  secret_key: ${SECRET_KEY}
+  algorithm: HS256
+  access_token_expire_minutes: 30
+  refresh_token_expire_days: 7
+  password_hash_rounds: 12
+  rate_limit_requests: 100
+  rate_limit_window: 60
+
+external_apis:
+  youtube_api_key: ${YOUTUBE_API_KEY}
+  tiktok_access_token: ${TIKTOK_ACCESS_TOKEN}
+  twitter_bearer_token: ${TWITTER_BEARER_TOKEN}
+  openai_api_key: ${OPENAI_API_KEY}
+  reddit_client_id: ${REDDIT_CLIENT_ID}
+  reddit_client_secret: ${REDDIT_CLIENT_SECRET}
+  instagram_access_token: ${INSTAGRAM_ACCESS_TOKEN}
+  facebook_page_token: ${FACEBOOK_PAGE_TOKEN}
+
+agent:
+  research_agent_interval: 4h
+  content_agent_batch_size: 10
+  engagement_agent_polling_interval: 300
+  max_concurrent_agents: 10
+  agent_timeout: 3600
+
+skill:
+  skill_timeout: 30
+  max_retries: 3
+  retry_delay: 2
+  circuit_breaker_threshold: 5
+  circuit_breaker_timeout: 60
+
+logging:
+  level: info
+  format: json
+  file_path: /var/log/chimera/application.log
+  max_file_size: 104857600  # 100MB
+  backup_count: 10
+
+monitoring:
+  enabled: true
+  metrics_port: 9090
+  traces_endpoint: ${OTLP_ENDPOINT}
+  metrics_endpoint: ${METRICS_ENDPOINT}
+  logs_endpoint: ${LOGS_ENDPOINT}
+  sample_rate: 0.1  # Sample 10% of traces in production
+
+storage:
+  media_bucket: ${MEDIA_BUCKET}
+  archive_bucket: ${ARCHIVE_BUCKET}
+  max_file_size: 1073741824  # 1GB
+  allowed_mime_types:
+    - video/mp4
+    - image/jpeg
+    - image/png
+    - audio/mpeg
+    - application/json
+
+features:
+  ai_content_generation: ${FEATURE_AI_CONTENT:-true}
+  auto_scheduling: ${FEATURE_AUTO_SCHEDULE:-true}
+  multi_platform_publishing: ${FEATURE_MULTI_PLATFORM:-true}
+  audience_analytics: ${FEATURE_ANALYTICS:-true}
+  trend_prediction: ${FEATURE_PREDICTION:-false}
+  content_safety: ${FEATURE_SAFETY:-true}
+  openclaw_integration: ${FEATURE_OPENCLAW:-false}
+  mcp_enabled: ${FEATURE_MCP:-true}
+
+# Health checks
+health:
+  database_timeout: 5
+  redis_timeout: 3
+  external_api_timeout: 10
+  check_interval: 30
+
+# Performance
+performance:
+  cache_ttl: 300  # 5 minutes
+  query_timeout: 30
+  max_response_size: 10485760  # 10MB
+  rate_limit_strategy: sliding_window
+
+# Scaling
+scaling:
+  database_read_replicas: ${DB_READ_REPLICAS:-2}
+  redis_cluster_mode: ${REDIS_CLUSTER:-false}
+  worker_concurrency: ${WORKER_CONCURRENCY:-4}
+  max_request_queue: ${MAX_REQUEST_QUEUE:-1000}
+
+# Alerting
+alerting:
+  enabled: true
+  slack_webhook: ${SLACK_WEBHOOK}
+  pagerduty_service_key: ${PAGERDUTY_SERVICE_KEY}
+  email_notifications: ${ALERT_EMAILS}
+  critical_thresholds:
+    error_rate: 0.05  # 5%
+    response_time_p95: 2000  # 2 seconds
+    cpu_usage: 0.8  # 80%
+    memory_usage: 0.9  # 90%

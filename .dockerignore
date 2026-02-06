@@ -1,0 +1,169 @@
+# .dockerignore
+# Project Chimera - Docker Ignore Rules
+
+# ====================
+# Version Control
+# ====================
+
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# ====================
+# Development Files
+# ====================
+
+# Python development files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Documentation
+docs/_build/
+docs/build/
+
+# ====================
+# Environment & Config
+# ====================
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+
+# Configuration overrides
+config/*.local.yaml
+config/*.local.json
+
+# ====================
+# Logs & Temporary Files
+# ====================
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Temp files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Cache
+.cache/
+.mypy_cache/
+.pyre/
+.pytype/
+
+# ====================
+# IDE & Editor
+# ====================
+
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+
+# ====================
+# OS Files
+# ====================
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ====================
+# Build Artifacts
+# ====================
+
+# Python packages
+*.whl
+*.tar.gz
+
+# Docker
+Dockerfile.dev
+docker-compose.override.yml
+docker-compose.test.yml
+
+# ====================
+# Media & Content
+# ====================
+
+# Generated content (should be in volumes)
+media/
+uploads/
+downloads/
+
+# ====================
+# Specific to Project Chimera
+# ====================
+
+# MCP telemetry (should be mounted)
+mcp/tenx-sense/logs/
+
+# Local databases (should be in volumes)
+*.db
+*.sqlite
+*.sqlite3
+
+# Test files
+tests/data/
+
+# Keep these
+!requirements/
+!config/
+!specs/
+!skills/
+!agents/
+!api/
+!utils/
+!infrastructure/docker/
+!scripts/
+!Makefile
+!pyproject.toml
+!uv.lock
+!README.md
+!CONTRIBUTING.md
+!SECURITY.md
+!CHANGELOG.md
+!SPEC_VERSIONING.md
+!.pre-commit-config.yaml
+!.gitignore
+!.dockerignore
+!.env.example

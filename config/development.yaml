@@ -1,0 +1,89 @@
+environment: development
+debug: true
+
+database:
+  url: postgresql://chimera:chimera@localhost:5432/chimera_dev
+  pool_size: 10
+  max_overflow: 20
+  echo: true
+
+redis:
+  url: redis://localhost:6379/0
+  max_connections: 20
+
+api:
+  host: 0.0.0.0
+  port: 8000
+  workers: 1
+  reload: true
+  cors_origins:
+    - http://localhost:3000
+    - http://localhost:8000
+  docs_url: /docs
+  redoc_url: /redoc
+
+security:
+  secret_key: development-secret-key-change-before-production
+  algorithm: HS256
+  access_token_expire_minutes: 1440  # 24 hours for development
+  rate_limit_requests: 1000
+  rate_limit_window: 60
+
+external_apis:
+  youtube_api_key: ${YOUTUBE_API_KEY}
+  tiktok_access_token: ${TIKTOK_ACCESS_TOKEN}
+  twitter_bearer_token: ${TWITTER_BEARER_TOKEN}
+  openai_api_key: ${OPENAI_API_KEY}
+  reddit_client_id: ${REDDIT_CLIENT_ID}
+  reddit_client_secret: ${REDDIT_CLIENT_SECRET}
+
+agent:
+  research_agent_interval: 1h
+  content_agent_batch_size: 5
+  engagement_agent_polling_interval: 60
+  max_concurrent_agents: 3
+  agent_timeout: 1800
+
+skill:
+  skill_timeout: 60
+  max_retries: 5
+  retry_delay: 1
+  circuit_breaker_threshold: 10
+  circuit_breaker_timeout: 30
+
+logging:
+  level: debug
+  format: json
+  file_path: logs/development.log
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+
+monitoring:
+  enabled: true
+  metrics_port: 9090
+  traces_endpoint: http://localhost:4317
+  metrics_endpoint: http://localhost:9090
+  sample_rate: 1.0  # Sample all traces in development
+
+storage:
+  media_bucket: chimera-media-dev
+  archive_bucket: chimera-archive-dev
+  max_file_size: 536870912  # 512MB for development
+  allowed_mime_types:
+    - video/mp4
+    - video/quicktime
+    - image/jpeg
+    - image/png
+    - image/gif
+    - audio/mpeg
+    - application/json
+
+features:
+  ai_content_generation: true
+  auto_scheduling: true
+  multi_platform_publishing: true
+  audience_analytics: true
+  trend_prediction: true
+  content_safety: true
+  openclaw_integration: false
+  mcp_enabled: true

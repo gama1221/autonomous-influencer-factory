@@ -1,0 +1,299 @@
+# API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: chimera-api
+  namespace: chimera
+  labels:
+    app: chimera-api
+    component: api
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-internal: "false"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:us-east-1:123456789012:certificate/abc123"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+spec:
+  type: LoadBalancer
+  selector:
+    app: chimera-api
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 8000
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 8000
+    protocol: TCP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+---
+# API ClusterIP Service (for internal communication)
+apiVersion: v1
+kind: Service
+metadata:
+  name: chimera-api-internal
+  namespace: chimera
+  labels:
+    app: chimera-api
+    component: api
+    visibility: internal
+spec:
+  type: ClusterIP
+  selector:
+    app: chimera-api
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+---
+# Research Agent Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: chimera-research-agent
+  namespace: chimera
+  labels:
+    app: chimera-research-agent
+    component: agent
+    agent-type: research
+spec:
+  type: ClusterIP
+  selector:
+    app: chimera-research-agent
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+---
+# Content Agent Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: chimera-content-agent
+  namespace: chimera
+  labels:
+    app: chimera-content-agent
+    component: agent
+    agent-type: content
+spec:
+  type: ClusterIP
+  selector:
+    app: chimera-content-agent
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: chimera-postgres
+  namespace: chimera
+  labels:
+    app: chimera-postgres
+    component: database
+spec:
+  type: ClusterIP
+  selector:
+    app: chimera-postgres
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+    protocol: TCP
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: chimera-redis
+  namespace: chimera
+  labels:
+    app: chimera-redis
+    component: cache
+spec:
+  type: ClusterIP
+  selector:
+    app: chimera-redis
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+    protocol: TCP
+---
+# Redis Sentinel Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: chimera-redis-sentinel
+  namespace: chimera
+  labels:
+    app: chimera-redis
+    component: cache
+    role: sentinel
+spec:
+  type: ClusterIP
+  selector:
+    app: chimera-redis
+  ports:
+  - name: sentinel
+    port: 26379
+    targetPort: 26379
+    protocol: TCP
+---
+# OpenTelemetry Collector Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: chimera-monitoring
+  labels:
+    app: otel-collector
+    component: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app: otel-collector
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+    protocol: TCP
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+    protocol: TCP
+  - name: metrics
+    port: 8888
+    targetPort: 8888
+    protocol: TCP
+  - name: metrics-prom
+    port: 8889
+    targetPort: 8889
+    protocol: TCP
+  - name: healthcheck
+    port: 13133
+    targetPort: 13133
+    protocol: TCP
+  - name: zpages
+    port: 55679
+    targetPort: 55679
+    protocol: TCP
+---
+# Prometheus Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: chimera-monitoring
+  labels:
+    app: prometheus
+    component: monitoring
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+spec:
+  type: LoadBalancer
+  selector:
+    app: prometheus
+  ports:
+  - name: http
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+---
+# Grafana Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: chimera-monitoring
+  labels:
+    app: grafana
+    component: monitoring
+spec:
+  type: LoadBalancer
+  selector:
+    app: grafana
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+    protocol: TCP
+---
+# MinIO Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: chimera
+  labels:
+    app: minio
+    component: storage
+spec:
+  type: ClusterIP
+  selector:
+    app: minio
+  ports:
+  - name: minio
+    port: 9000
+    targetPort: 9000
+    protocol: TCP
+  - name: console
+    port: 9001
+    targetPort: 9001
+    protocol: TCP
+---
+# MinIO Headless Service (for StatefulSet)
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-headless
+  namespace: chimera
+  labels:
+    app: minio
+    component: storage
+spec:
+  clusterIP: None
+  selector:
+    app: minio
+  ports:
+  - name: minio
+    port: 9000
+    targetPort: 9000
+    protocol: TCP
+---
+# NodePort Service for Development
+apiVersion: v1
+kind: Service
+metadata:
+  name: chimera-api-nodeport
+  namespace: chimera
+  labels:
+    app: chimera-api
+    component: api
+    environment: development
+spec:
+  type: NodePort
+  selector:
+    app: chimera-api
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    nodePort: 30080
+    protocol: TCP

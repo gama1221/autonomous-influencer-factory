@@ -1,0 +1,25 @@
+# requirements/prod.txt
+# Project Chimera - Production Requirements
+
+# Production Server
+gunicorn>=21.2.0
+uvicorn[standard]>=0.24.0
+
+# Monitoring & Observability
+opentelemetry-api>=1.21.0
+opentelemetry-sdk>=1.21.0
+opentelemetry-exporter-otlp>=1.21.0
+prometheus-client>=0.19.0
+sentry-sdk>=1.38.0
+
+# Performance
+psutil>=5.9.0
+cachetools>=5.3.0
+redis>=5.0.0
+
+# Security
+cryptography>=41.0.0
+python-jose>=3.3.0
+passlib>=1.7.4
+
+# NOTE: Install with: uv pip install -r requirements/prod.txt

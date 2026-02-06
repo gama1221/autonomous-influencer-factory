@@ -1,0 +1,188 @@
+
+### **diagrams/system-architecture.mmd**
+```mermaid
+graph TB
+    subgraph "External Platforms"
+        YT[YouTube API]
+        TT[TikTok API]
+        TW[Twitter API]
+        RD[Reddit API]
+        IG[Instagram API]
+        FB[Facebook API]
+    end
+    
+    subgraph "Chimera Factory"
+        subgraph "API Gateway"
+            GW[FastAPI Gateway]
+            Auth[Authentication]
+            RateLimit[Rate Limiting]
+            LoadBalancer[Load Balancer]
+        end
+        
+        subgraph "Agent Orchestration Layer"
+            Orchestrator[Agent Orchestrator]
+            
+            subgraph "Specialized Agents"
+                RA[Research Agent]
+                CA[Content Agent]
+                EA[Engagement Agent]
+                QA[Quality Agent]
+            end
+            
+            AgentMemory[Agent Memory Store]
+        end
+        
+        subgraph "Skill Execution Layer"
+            SkillRegistry[Skill Registry]
+            
+            subgraph "Core Skills"
+                ST[Skill: Trend Analysis]
+                SC[Skill: Content Generation]
+                SP[Skill: Platform Publishing]
+                SA[Skill: Audience Analysis]
+            end
+            
+            SkillExecutor[Skill Executor]
+        end
+        
+        subgraph "Data Layer"
+            subgraph "Databases"
+                TrendsDB[(Trends DB)]
+                ContentDB[(Content DB)]
+                UsersDB[(Users DB)]
+                MetricsDB[(Metrics DB)]
+            end
+            
+            Cache[(Redis Cache)]
+            VectorDB[(Vector DB<br/>for embeddings)]
+            ObjectStore[(Object Storage)]
+        end
+        
+        subgraph "Infrastructure"
+            MCP[MCP Servers]
+            Queue[(Message Queue)]
+            Scheduler[Task Scheduler]
+            Monitor[Monitoring]
+        end
+        
+        subgraph "External Integrations"
+            OpenClaw[OpenClaw Network]
+            MCPBridge[MCP Bridge]
+            Payment[Payment Gateway]
+        end
+    end
+    
+    subgraph "Clients"
+        WebApp[Web Dashboard]
+        Mobile[Mobile App]
+        CLI[CLI Tool]
+        Agents[External Agents]
+    end
+    
+    %% External Connections
+    YT --> RA
+    TT --> RA
+    TW --> RA
+    RD --> RA
+    IG --> EA
+    FB --> EA
+    
+    %% API Gateway Flow
+    WebApp --> GW
+    Mobile --> GW
+    CLI --> GW
+    Agents --> GW
+    
+    GW --> Auth
+    Auth --> RateLimit
+    RateLimit --> LoadBalancer
+    
+    %% Internal Service Communication
+    LoadBalancer --> Orchestrator
+    LoadBalancer --> SkillRegistry
+    
+    Orchestrator --> RA
+    Orchestrator --> CA
+    Orchestrator --> EA
+    Orchestrator --> QA
+    
+    RA --> AgentMemory
+    CA --> AgentMemory
+    EA --> AgentMemory
+    QA --> AgentMemory
+    
+    RA --> SkillRegistry
+    CA --> SkillRegistry
+    EA --> SkillRegistry
+    QA --> SkillRegistry
+    
+    SkillRegistry --> ST
+    SkillRegistry --> SC
+    SkillRegistry --> SP
+    SkillRegistry --> SA
+    
+    ST --> SkillExecutor
+    SC --> SkillExecutor
+    SP --> SkillExecutor
+    SA --> SkillExecutor
+    
+    SkillExecutor --> TrendsDB
+    SkillExecutor --> ContentDB
+    SkillExecutor --> UsersDB
+    SkillExecutor --> MetricsDB
+    
+    SkillExecutor --> Cache
+    SkillExecutor --> VectorDB
+    SkillExecutor --> ObjectStore
+    
+    %% Infrastructure Connections
+    MCP --> SkillRegistry
+    Queue --> Orchestrator
+    Scheduler --> Orchestrator
+    Monitor --> GW
+    Monitor --> Orchestrator
+    Monitor --> SkillExecutor
+    
+    %% External Integrations
+    OpenClaw --> Orchestrator
+    MCPBridge --> MCP
+    Payment --> Orchestrator
+    
+    %% Data Flow
+    TrendsDB -.->|Replication| ContentDB
+    Cache -.->|Caching| TrendsDB
+    VectorDB -.->|Embeddings| ContentDB
+    
+    %% Event Flow
+    RA -->|Trend Discovered| Queue
+    Queue -->|Process Trend| CA
+    CA -->|Content Generated| Queue
+    Queue -->|Schedule Publishing| SP
+    SP -->|Content Published| Queue
+    Queue -->|Track Engagement| EA
+    
+    %% Monitoring Flow
+    GW -->|Metrics| Monitor
+    Orchestrator -->|Agent Metrics| Monitor
+    SkillExecutor -->|Skill Metrics| Monitor
+    TrendsDB -->|DB Metrics| Monitor
+    
+    style YT fill:#ff6b6b
+    style TT fill:#4ecdc4
+    style TW fill:#45b7d1
+    style RD fill:#96ceb4
+    style IG fill:#feca57
+    style FB fill:#ff9ff3
+    
+    style GW fill:#1a1a2e
+    style Orchestrator fill:#16213e
+    style SkillRegistry fill:#0f3460
+    style TrendsDB fill:#2d4059
+    style Cache fill:#ff5722
+    
+    style WebApp fill:#00b894
+    style Mobile fill:#00cec9
+    style CLI fill:#0984e3
+    
+    style OpenClaw fill:#6c5ce7
+    style MCP fill:#fd79a8

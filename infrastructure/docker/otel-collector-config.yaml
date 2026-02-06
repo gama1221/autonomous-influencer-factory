@@ -1,0 +1,114 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  jaeger:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:14250
+      thrift_compact:
+        endpoint: 0.0.0.0:6831
+      thrift_binary:
+        endpoint: 0.0.0.0:6832
+      thrift_http:
+        endpoint: 0.0.0.0:14268
+
+  zipkin:
+    endpoint: 0.0.0.0:9411
+
+  prometheus:
+    config:
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+      scrape_configs:
+        - job_name: 'chimera-api'
+          static_configs:
+            - targets: ['api:8000']
+              labels:
+                service: 'chimera-api'
+        - job_name: 'chimera-agents'
+          static_configs:
+            - targets: ['research-agent:8000', 'content-agent:8000', 'engagement-agent:8000']
+              labels:
+                service: 'chimera-agents'
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 256
+
+  attributes:
+    actions:
+      - key: deployment.environment
+        value: ${ENVIRONMENT}
+        action: upsert
+      - key: service.version
+        value: ${VERSION:-1.0.0}
+        action: upsert
+
+  resource:
+    attributes:
+      - key: service.name
+        value: ${SERVICE_NAME}
+        action: upsert
+      - key: service.namespace
+        value: chimera
+        action: upsert
+      - key: service.instance.id
+        value: ${HOSTNAME}
+        action: upsert
+
+exporters:
+  debug:
+    verbosity: detailed
+
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: chimera
+    const_labels:
+      environment: ${ENVIRONMENT:-development}
+
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+
+  logging:
+    loglevel: info
+
+  file:
+    path: /var/log/otel/traces.json
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp, jaeger, zipkin]
+      processors: [memory_limiter, batch, attributes, resource]
+      exporters: [jaeger, file, logging]
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, batch, attributes, resource]
+      exporters: [prometheus, logging]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, attributes, resource]
+      exporters: [logging, file]

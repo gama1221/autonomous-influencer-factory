@@ -1,0 +1,60 @@
+name: Specification Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'specs/**'
+      - '.cursor/rules/**'
+      - 'skills/**/skill.yaml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'specs/**'
+      - '.cursor/rules/**'
+
+jobs:
+  validate-specs:
+    name: Validate Specifications
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install validation dependencies
+        run: |
+          pip install jsonschema yamllint
+
+      - name: Validate JSON schemas
+        run: |
+          for schema in specs/api/*.json; do
+            python -m jsonschema "$schema" --instance <(echo '{}')
+          done
+
+      - name: Validate YAML files
+        run: |
+          yamllint -c .yamllint.yaml .
+          yamllint -d "{extends: relaxed, rules: {line-length: disable}}" skills/**/*.yaml
+
+      - name: Validate skill manifests
+        run: |
+          python scripts/validate_skills.py
+
+      - name: Check spec consistency
+        run: |
+          python scripts/check_spec_consistency.py
+
+      - name: Generate spec compliance report
+        run: |
+          python scripts/generate_compliance_report.py > spec-compliance.md
+
+      - name: Upload compliance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: spec-compliance-report
+          path: spec-compliance.md

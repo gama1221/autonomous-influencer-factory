@@ -1,0 +1,92 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: FastAPI",
+      "type": "python",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "api.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload"
+      ],
+      "jinja": true,
+      "justMyCode": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "ENVIRONMENT": "development"
+      }
+    },
+    {
+      "name": "Python: Run Tests",
+      "type": "python",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "tests",
+        "-v",
+        "--tb=short",
+        "--cov=agents",
+        "--cov=skills",
+        "--cov=api"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "ENVIRONMENT": "test"
+      }
+    },
+    {
+      "name": "Python: Skill Test",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "SKILL_ENVIRONMENT": "test"
+      }
+    },
+    {
+      "name": "Python: Debug Agent",
+      "type": "python",
+      "request": "launch",
+      "module": "agents.research_agent.agent",
+      "args": ["--test"],
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "AGENT_ENVIRONMENT": "debug"
+      }
+    },
+    {
+      "name": "Docker: Python & Postgres",
+      "type": "docker",
+      "request": "launch",
+      "preLaunchTask": "docker-compose up",
+      "platform": "python",
+      "python": {
+        "pathMappings": [
+          {
+            "localRoot": "${workspaceFolder}",
+            "remoteRoot": "/app"
+          }
+        ],
+        "projectType": "fastapi"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack",
+      "configurations": ["Python: FastAPI", "Docker: Python & Postgres"]
+    }
+  ]
+}

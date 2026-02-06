@@ -1,0 +1,280 @@
+version: '3.8'
+
+services:
+  # Test Database
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: chimera-postgres-test
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: chimera_test
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5433:5432"
+    networks:
+      - chimera-test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d chimera_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=100
+
+  # Test Redis
+  redis-test:
+    image: redis:7-alpine
+    container_name: chimera-redis-test
+    command: redis-server --appendonly no --requirepass test_password
+    ports:
+      - "6380:6379"
+    networks:
+      - chimera-test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Test API Service
+  api-test:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/Dockerfile
+      target: builder  # Use builder stage for tests
+    container_name: chimera-api-test
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    environment:
+      # Test Database
+      DATABASE_URL: postgresql://test:test_password@postgres-test:5432/chimera_test
+      DATABASE_POOL_SIZE: 5
+      
+      # Test Redis
+      REDIS_URL: redis://:test_password@redis-test:6379/15
+      
+      # Test Configuration
+      ENVIRONMENT: testing
+      DEBUG: "false"
+      LOG_LEVEL: WARNING
+      
+      # Security
+      SECRET_KEY: test-secret-key-for-testing-only
+      ALGORITHM: HS256
+      
+      # API Configuration
+      API_HOST: 0.0.0.0
+      API_PORT: 8001
+      API_WORKERS: 1
+      API_RELOAD: "false"
+      CORS_ORIGINS: ""
+      
+      # Feature Flags
+      FEATURE_AI_CONTENT_GENERATION: "false"
+      FEATURE_AUTO_SCHEDULING: "false"
+      FEATURE_MULTI_PLATFORM_PUBLISHING: "false"
+      
+      # External APIs (mock mode)
+      YOUTUBE_API_KEY: mock_youtube_key
+      TIKTOK_ACCESS_TOKEN: mock_tiktok_token
+      TWITTER_BEARER_TOKEN: mock_twitter_token
+      OPENAI_API_KEY: mock_openai_key
+      
+      # Test-specific
+      TESTING_MODE: "true"
+      USE_MOCK_RESPONSES: "true"
+      TEST_TIMEOUT: "30"
+    volumes:
+      - ../tests:/app/tests
+      - ../.coverage:/app/.coverage
+      - ..:/app:ro
+    ports:
+      - "8001:8001"
+    networks:
+      - chimera-test-network
+    command: >
+      sh -c "
+      # Wait for services to be ready
+      sleep 5;
+      
+      # Run database migrations
+      cd /app && alembic upgrade head;
+      
+      # Run tests
+      python -m pytest tests/ \
+        -v \
+        --cov=agents \
+        --cov=api \
+        --cov=skills \
+        --cov-report=term-missing \
+        --cov-report=html:htmlcov \
+        --cov-report=xml:coverage.xml \
+        --junitxml=test-results/junit.xml \
+        -p no:warnings;
+      
+      # Generate coverage report
+      python -m coverage json -o coverage.json;
+      
+      # Keep container running for debugging
+      tail -f /dev/null;
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Test Agent Runner
+  agent-test:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/Dockerfile.agent
+    container_name: chimera-agent-test
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      api-test:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://test:test_password@postgres-test:5432/chimera_test
+      REDIS_URL: redis://:test_password@redis-test:6379/14
+      AGENT_TYPE: research
+      AGENT_ID: test-agent-1
+      AGENT_ENVIRONMENT: testing
+      API_BASE_URL: http://api-test:8001/api/v1
+      TESTING_MODE: "true"
+      USE_MOCK_RESPONSES: "true"
+    volumes:
+      - ../tests:/app/tests
+      - ..:/app:ro
+    networks:
+      - chimera-test-network
+    command: >
+      sh -c "
+      # Run agent tests
+      python -m pytest tests/unit/agents/ \
+        -v \
+        --cov=agents \
+        --cov-report=term-missing \
+        -p no:warnings;
+      
+      # Run integration tests
+      python -m pytest tests/integration/test_agent_workflow.py \
+        -v \
+        -p no:warnings;
+      
+      tail -f /dev/null;
+      "
+
+  # Mock External APIs
+  mock-external-apis:
+    image: wiremock/wiremock:2.35.0
+    container_name: chimera-mock-apis
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./wiremock/mappings:/home/wiremock/mappings
+      - ./wiremock/__files:/home/wiremock/__files
+    networks:
+      - chimera-test-network
+    command: >
+      --global-response-templating
+      --verbose
+      --port 8080
+
+  # Test Coverage Server
+  coverage-server:
+    image: nginx:1.24-alpine
+    container_name: chimera-coverage-server
+    ports:
+      - "8081:80"
+    volumes:
+      - ../htmlcov:/usr/share/nginx/html:ro
+    networks:
+      - chimera-test-network
+    depends_on:
+      - api-test
+
+  # Test Results Server
+  test-results-server:
+    image: nginx:1.24-alpine
+    container_name: chimera-test-results-server
+    ports:
+      - "8082:80"
+    volumes:
+      - ../test-results:/usr/share/nginx/html:ro
+    networks:
+      - chimera-test-network
+    depends_on:
+      - api-test
+
+  # Test Monitoring
+  test-prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: chimera-test-prometheus
+    volumes:
+      - ./prometheus.test.yml:/etc/prometheus/prometheus.yml
+      - test-prometheus_data:/prometheus
+    ports:
+      - "9091:9090"
+    networks:
+      - chimera-test-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=1h'
+
+  # Database Cleaner (runs after tests)
+  db-cleaner:
+    image: postgres:15-alpine
+    container_name: chimera-db-cleaner
+    depends_on:
+      - api-test
+    environment:
+      PGHOST: postgres-test
+      PGPORT: 5432
+      PGUSER: test
+      PGPASSWORD: test_password
+      PGDATABASE: chimera_test
+    volumes:
+      - ./scripts/cleanup-test-db.sh:/cleanup.sh
+    networks:
+      - chimera-test-network
+    command: >
+      sh -c "
+      # Wait for tests to complete
+      sleep 60;
+      
+      # Clean up test database
+      /cleanup.sh;
+      
+      echo 'Test database cleaned';
+      "
+    restart: "no"
+
+# Networks
+networks:
+  chimera-test-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+          gateway: 172.21.0.1
+
+# Volumes
+volumes:
+  test-prometheus_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/data/test-prometheus
+      o: bind

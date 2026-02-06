@@ -1,0 +1,27 @@
+# Core specifications
+/specs/ @chimera/architecture-team
+
+# Agent implementations
+/agents/ @chimera/agent-team
+
+# Skills framework
+/skills/ @chimera/skills-team
+
+# API layer
+/api/ @chimera/api-team
+
+# Infrastructure
+/infrastructure/ @chimera/infra-team
+
+# Security files
+SECURITY.md @chimera/security-team
+.github/workflows/security-scan.yml @chimera/security-team
+
+# Documentation
+/docs/ @chimera/docs-team
+
+# MCP configuration
+/mcp/ @chimera/mcp-team
+
+# CI/CD
+.github/workflows/ @chimera/infra-team

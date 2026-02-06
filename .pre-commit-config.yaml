@@ -1,0 +1,277 @@
+# .pre-commit-config.yaml
+# Project Chimera - Pre-commit Hooks Configuration
+repos:
+  # ====================
+  # Code Formatting
+  # ====================
+  
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        name: Black - Code formatting
+        description: "Auto-format Python code to Black style"
+        entry: black
+        language: python
+        types: [python]
+        args: [--line-length=88, --target-version=py311]
+        require_serial: true
+  
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort - Import sorting
+        description: "Sort Python imports automatically"
+        entry: isort
+        language: python
+        types: [python]
+        args: [--profile=black, --line-length=88]
+  
+  # ====================
+  # Linting & Static Analysis
+  # ====================
+  
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.1.0
+    hooks:
+      - id: flake8
+        name: Flake8 - Python linting
+        description: "Check Python code style and quality"
+        entry: flake8
+        language: python
+        types: [python]
+        args: [
+          "--max-line-length=88",
+          "--extend-ignore=E203,W503",
+          "--exclude=.venv,venv,__pycache__,.git,.tox,.pytest_cache",
+          "--per-file-ignores=__init__.py:F401"
+        ]
+  
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        name: mypy - Type checking
+        description: "Static type checking for Python"
+        entry: mypy
+        language: python
+        types: [python]
+        args: [
+          "--ignore-missing-imports",
+          "--disallow-untyped-defs",
+          "--no-implicit-optional",
+          "--strict-equality",
+          "--warn-redundant-casts",
+          "--warn-unused-ignores",
+          "--warn-return-any",
+          "--warn-unreachable",
+          "--exclude=^tests/",
+          "--explicit-package-bases"
+        ]
+        additional_dependencies: [
+          "types-requests",
+          "types-pyyaml",
+          "types-python-dateutil"
+        ]
+  
+  # ====================
+  # Security
+  # ====================
+  
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.7
+    hooks:
+      - id: bandit
+        name: Bandit - Security scanning
+        description: "Find common security issues in Python code"
+        entry: bandit
+        language: python
+        types: [python]
+        args: [
+          "-ll",
+          "-iii",
+          "--exclude=tests,venv,.venv",
+          "--skips=B101,B104"
+        ]
+  
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: Detect secrets
+        description: "Prevent committing secrets to git"
+        entry: detect-secrets
+        language: python
+        types: [text]
+        args: ["--baseline", ".secrets.baseline"]
+  
+  # ====================
+  # Documentation
+  # ====================
+  
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.17.2
+    hooks:
+      - id: typos
+        name: Typos - Spell checking
+        description: "Check for typographical errors"
+        entry: typos
+        language: rust
+        types: [text]
+        args: ["--format", "brief"]
+  
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        name: Prettier - Markdown formatting
+        description: "Auto-format Markdown files"
+        types: [markdown]
+        exclude: "^docs/api/"
+  
+  # ====================
+  # YAML/JSON Validation
+  # ====================
+  
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        name: Prettier - YAML/JSON formatting
+        description: "Auto-format YAML and JSON files"
+        types: [yaml, json]
+        files: "\\.(yaml|yml|json)$"
+        exclude: "^requirements/"
+  
+  - repo: https://github.com/pre-commit/mirrors-yamllint
+    rev: v1.33.0
+    hooks:
+      - id: yamllint
+        name: yamllint - YAML linting
+        description: "Validate YAML files"
+        entry: yamllint
+        language: python
+        types: [yaml]
+        args: ["-c", ".yamllint.yaml"]
+  
+  # ====================
+  # Shell Scripts
+  # ====================
+  
+  - repo: https://github.com/openstack-dev/bashate
+    rev: 2.1.0
+    hooks:
+      - id: bashate
+        name: bashate - Shell script linting
+        description: "Check bash scripts for style and quality"
+        entry: bashate
+        language: python
+        types: [shell]
+        args: ["-i", "E006,E040"]
+  
+  # ====================
+  # Terraform
+  # ====================
+  
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.86.0
+    hooks:
+      - id: terraform_fmt
+        name: terraform fmt
+        description: "Format Terraform files"
+        files: "\\.tf$"
+        exclude: "^infrastructure/terraform/\\.terraform/"
+      
+      - id: terraform_validate
+        name: terraform validate
+        description: "Validate Terraform files"
+        files: "\\.tf$"
+        exclude: "^infrastructure/terraform/\\.terraform/"
+  
+  # ====================
+  # Git Operations
+  # ====================
+  
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.5.0
+    hooks:
+      - id: commitlint
+        name: commitlint - Commit message validation
+        description: "Validate commit messages"
+        entry: commitlint
+        language: node
+        stages: [commit-msg]
+        args: ["--config", ".commitlintrc.json"]
+  
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+        name: Check for large files
+        description: "Prevent committing large files"
+        args: ["--maxkb=10240"]
+      
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+        description: "Check for files with merge conflict strings"
+      
+      - id: end-of-file-fixer
+        name: Fix end of files
+        description: "Ensure files end with a newline"
+      
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        description: "Remove trailing whitespace"
+      
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+        description: "Replace or check mixed line endings"
+        args: ["--fix=lf"]
+      
+      - id: check-yaml
+        name: Check YAML
+        description: "Check YAML files for parseable syntax"
+      
+      - id: check-json
+        name: Check JSON
+        description: "Check JSON files for parseable syntax"
+      
+      - id: check-toml
+        name: Check TOML
+        description: "Check TOML files for parseable syntax"
+      
+      - id: check-case-conflict
+        name: Check for case conflicts
+        description: "Check for files with names that differ only in case"
+      
+      - id: detect-private-key
+        name: Detect private keys
+        description: "Detect the presence of private keys"
+
+# ====================
+# Configuration
+# ====================
+
+default_language_version:
+  python: python3.11
+
+default_stages: [commit, push]
+
+fail_fast: false
+
+exclude: |
+  (?x)^(
+    infrastructure/terraform/\\.terraform/|
+    \\.venv/|
+    venv/|
+    __pycache__/|
+    \\.git/|
+    node_modules/|
+    \\.pytest_cache/|
+    \\.mypy_cache/|
+    \\.cache/|
+    docs/_build/|
+    build/|
+    dist/
+  )

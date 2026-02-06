@@ -1,0 +1,27 @@
+{
+  "server_url": "wss://sense.tenx.dev/ws",
+  "api_key": "${TENX_API_KEY}",
+  "project_id": "chimera-factory",
+  "environment": "development",
+  
+  "capture_settings": {
+    "code_changes": true,
+    "terminal_commands": true,
+    "editor_events": true,
+    "llm_interactions": true
+  },
+  
+  "filtering": {
+    "ignore_patterns": [
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/__pycache__/**"
+    ],
+    "sensitive_keywords": ["password", "secret", "api_key", "token"]
+  },
+  
+  "batch_settings": {
+    "max_batch_size": 100,
+    "flush_interval_ms": 5000
+  }
+}

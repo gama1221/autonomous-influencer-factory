@@ -1,0 +1,104 @@
+# Multi-stage build for AI Agent
+FROM python:3.11-slim AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    curl \
+    git \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies with specific groups for agents
+RUN uv venv && \
+    . /app/.venv/bin/activate && \
+    uv sync --frozen --group agent --group base
+
+# Copy agent-specific dependencies
+COPY agents/ ./agents/
+COPY utils/ ./utils/
+COPY config/ ./config/
+COPY data/ ./data/
+
+# Runtime stage
+FROM python:3.11-slim AS runtime
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    curl \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Chrome for web automation (optional)
+RUN curl -fsSL https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list && \
+    apt-get update && apt-get install -y google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r agent && useradd -r -g agent agent
+
+WORKDIR /app
+
+# Copy Python virtual environment from builder
+COPY --from=builder /app/.venv .venv
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app"
+
+# Copy application code
+COPY --from=builder /app/agents ./agents
+COPY --from=builder /app/utils ./utils
+COPY --from=builder /app/config ./config
+COPY --from=builder /app/data ./data
+
+# Copy agent-specific files
+COPY skills/ ./skills/
+COPY mcp/ ./mcp/
+COPY scripts/agent_runner.py ./
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data /app/temp && \
+    chown -R agent:agent /app && \
+    chmod -R 755 /app
+
+# Switch to non-root user
+USER agent
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD python -c "import sys; from agents.base_agent import AgentHealth; \
+    h = AgentHealth(); sys.exit(0 if h.check() else 1)"
+
+# Runtime configuration
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    AGENT_ENVIRONMENT=production \
+    UV_PYTHON_PREFER_SYSTEM=1 \
+    GOOGLE_APPLICATION_CREDENTIALS=/app/config/credentials.json \
+    CHROME_BIN=/usr/bin/google-chrome-stable
+
+# Default command (can be overridden)
+CMD ["python", "agent_runner.py", "--agent-type", "research"]
+
+# Labels
+LABEL maintainer="chimera-team@example.com" \
+      version="1.0.0" \
+      description="Chimera Factory AI Agent" \
+      ai.agent.type="autonomous-influencer" \
+      ai.agent.capabilities="research,content,engagement"

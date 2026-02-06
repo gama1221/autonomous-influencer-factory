@@ -1,0 +1,46 @@
+# mcp/servers.yaml
+servers:
+  - name: "tenx-sense"
+    type: "telemetry"
+    config_path: "./tenx-sense/config.json"
+    enabled: true
+    auto_start: true
+    
+  - name: "spec-validator"
+    type: "custom"
+    command: "python"
+    args: ["./mcp/custom/spec-validator/server.py"]
+    env:
+      SPECS_DIR: "./specs"
+      
+  - name: "openclaw-bridge"
+    type: "custom" 
+    command: "python"
+    args: ["./mcp/custom/openclaw-bridge/server.py"]
+    env:
+      OPENCLAW_API_KEY: "${OPENCLAW_API_KEY}"
+      OPENCLAW_ENDPOINT: "https://api.openclaw.net"
+      
+  - name: "database-connector"
+    type: "postgres"
+    connection_string: "${DATABASE_URL}"
+    schemas: ["public", "agent_actions"]
+    
+  - name: "filesystem"
+    type: "filesystem"
+    root_directory: "."
+    watch_patterns:
+      - "**/*.py"
+      - "**/*.md"
+      - "**/*.json"
+      - "**/*.yaml"
+
+logging:
+  level: "INFO"
+  format: "json"
+  output_file: "./logs/mcp-server.log"
+  
+telemetry:
+  enabled: true
+  endpoint: "http://localhost:8080/metrics"
+  interval: 30s
